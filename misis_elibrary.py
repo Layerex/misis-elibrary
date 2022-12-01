@@ -2,7 +2,7 @@
 
 __prog__ = "misis-elibrary"
 __desc__ = "Программа для загрузки книг из электронной библиотеки МИСИС."
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 import argparse
 import imghdr
