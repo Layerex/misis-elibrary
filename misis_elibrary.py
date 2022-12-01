@@ -12,6 +12,7 @@ from pathlib import Path
 
 import img2pdf
 import requests
+from bs4 import BeautifulSoup
 from requests.cookies import RequestsCookieJar
 
 BASE_URL = "http://elibrary.misis.ru/"
@@ -25,6 +26,10 @@ HEADERS = {
 }
 
 
+def soup(text: str):
+    return BeautifulSoup(text, "html.parser")
+
+
 def login_failed(page: requests.Response) -> bool:
     return (
         "Пароль не верен. Пожалуйста, проверьте Ваше Имя и Пароль и попробуйте еще." in page.text
@@ -34,6 +39,10 @@ def login_failed(page: requests.Response) -> bool:
 def page_invalid(page: requests.Response) -> bool:
     # Являются ли возвращённые данные чем-то, кроме jpeg изображения
     return imghdr.tests[0](page.content, None) is None
+
+
+def get_metadata_url(id: int) -> str:
+    return f"{BASE_URL}view.php?fDocumentId={id}"
 
 
 def get_request_url(id: int, page: int, request: str) -> str:
@@ -48,12 +57,16 @@ def get_hash_url(id: int, page: int) -> str:
     return get_request_url(id, page, "HashAvailability")
 
 
-def get_path(user_path: Path, id: int) -> Path:
+def get_path(user_path: Path, metadata: dict[str, str]) -> Path:
     if user_path.is_dir():
-        return user_path / f"{id}.pdf"
-    if os.path.exists(user_path.parent):
+        return user_path / f'{metadata["Название"]}.pdf'
+    else:
         return user_path
-    raise FileNotFoundError(f"No such file or directory: '{user_path}'")
+
+
+def check_path(user_path: Path):
+    if not user_path.is_dir() and not user_path.parent.exists:
+        raise FileNotFoundError(f"No such file or directory: '{user_path}'")
 
 
 def auth(
@@ -78,6 +91,29 @@ def auth(
         print(f"Не удалось войти.", file=sys.stderr)
         exit(3)
     return session, response
+
+
+def get_metadata(id: int, metadata_request: requests.Response | None) -> dict[str, str] | None:
+    if metadata_request is None:
+        metadata_request = requests.get(get_metadata_url(id))
+    content = soup(metadata_request.text).find("div", id="content")
+
+    metadata: dict[str, str] = {}
+    if title_string := content.find("h2"):
+        metadata["Название"] = title_string.text[len("Сведения по Документу: ") :]
+    else:
+        return None
+
+    table = content.find("table", class_="metadatatable")
+    for row in table.find_all("tr"):
+        metadata[row.find("th").text] = row.find("td").text.strip()
+
+    return metadata
+
+
+def print_metadata(metadata: dict[str, str]) -> None:
+    for key, value in metadata.items():
+        print(key, ": ", value, sep="")
 
 
 def download(
@@ -135,9 +171,21 @@ def main():
 
     args = parser.parse_args()
 
-    path = get_path(Path(args.output_path), args.id)
-    session, auth_response = auth(args.login, args.password, get_hash_url(args.id, 0))
-    pdf = download(args.id, session, auth_response)
+    path = Path(args.output_path)
+    check_path(Path(args.output_path))
+
+    session, metadata_response = auth(args.login, args.password, get_metadata_url(args.id))
+
+    metadata = get_metadata(args.id, metadata_response)
+    if metadata is None:
+        print(f"Нет книги с ID {id}.", file=sys.stderr)
+        exit(2)
+    print_metadata(metadata)
+
+    path = get_path(path, metadata)
+    print(f"Загружаем книгу в '{path}'...")
+
+    pdf = download(args.id, session)
     with open(path, "wb") as f:
         f.write(pdf)
 
