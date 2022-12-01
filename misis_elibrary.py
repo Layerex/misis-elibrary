@@ -93,10 +93,10 @@ def auth(
     return session, response
 
 
-def get_metadata(id: int, metadata_request: requests.Response | None) -> dict[str, str] | None:
-    if metadata_request is None:
-        metadata_request = requests.get(get_metadata_url(id), headers=HEADERS)
-    content = soup(metadata_request.text).find("div", id="content")
+def get_metadata(id: int, metadata_response: requests.Response | None) -> dict[str, str] | None:
+    if metadata_response is None:
+        metadata_response = requests.get(get_metadata_url(id), headers=HEADERS)
+    content = soup(metadata_response.text).find("div", id="content")
 
     metadata: dict[str, str] = {}
     if title_string := content.find("h2"):
@@ -117,15 +117,15 @@ def print_metadata(metadata: dict[str, str]) -> None:
 
 
 def download(
-    id: int, session: RequestsCookieJar, first_hash_request: requests.Response | None = None
+    id: int, session: RequestsCookieJar, first_hash_response: requests.Response | None = None
 ) -> bytes:
     """
     Функция возвращает pdf файл
     """
-    if first_hash_request is None:
-        first_hash_request = requests.get(get_hash_url(id, 0), cookies=session, headers=HEADERS)
+    if first_hash_response is None:
+        first_hash_response = requests.get(get_hash_url(id, 0), cookies=session, headers=HEADERS)
 
-    if first_hash_request.text != "0":
+    if first_hash_response.text != "0":
         print(f"Нет книги с ID {id}.", file=sys.stderr)
         exit(2)
 
