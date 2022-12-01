@@ -80,10 +80,15 @@ def auth(
     return session, response
 
 
-def download(id: int, session: RequestsCookieJar, first_hash_request: requests.Response) -> bytes:
+def download(
+    id: int, session: RequestsCookieJar, first_hash_request: requests.Response | None = None
+) -> bytes:
     """
     Функция возвращает pdf файл
     """
+    if first_hash_request is None:
+        first_hash_request = requests.get(get_hash_url(id, 0), cookies=session)
+
     if first_hash_request.text != "0":
         print(f"Нет книги с ID {id}.", file=sys.stderr)
         exit(2)
