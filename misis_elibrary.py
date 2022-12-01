@@ -99,11 +99,11 @@ def download(id: int, session: RequestsCookieJar, first_hash_request: requests.R
         sys.stdout.write(f"\rЗагружаем {i + 1} страницу...")
         page = requests.get(get_page_url(id, i), cookies=session)
         sys.stdout.flush()
-        i += 1
         if page_invalid(page):
             break
+        i += 1
         pages.append(page.content)
-    sys.stdout.write(f"\rСтраниц загружено: {i - 1}")
+    sys.stdout.write(f"\rСтраниц загружено: {i}")
 
     # Чтобы страницы не были слишком маленькими, устанавливаем формат A4
     a4layout = img2pdf.get_layout_fun((img2pdf.mm_to_pt(210), img2pdf.mm_to_pt(297)))
