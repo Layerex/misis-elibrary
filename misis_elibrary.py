@@ -6,7 +6,6 @@ __version__ = "0.0.1"
 
 import argparse
 import imghdr
-import os
 import sys
 from pathlib import Path
 
