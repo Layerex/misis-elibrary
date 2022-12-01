@@ -86,7 +86,7 @@ def auth(
         "password": password,
         "language": "ru_UN",
     }
-    response = requests.post(LOGIN_URL, payload, cookies=session)
+    response = requests.post(LOGIN_URL, payload, cookies=session, headers=HEADERS)
     if login_failed(response):
         print(f"Не удалось войти.", file=sys.stderr)
         exit(3)
@@ -95,7 +95,7 @@ def auth(
 
 def get_metadata(id: int, metadata_request: requests.Response | None) -> dict[str, str] | None:
     if metadata_request is None:
-        metadata_request = requests.get(get_metadata_url(id))
+        metadata_request = requests.get(get_metadata_url(id), headers=HEADERS)
     content = soup(metadata_request.text).find("div", id="content")
 
     metadata: dict[str, str] = {}
@@ -123,22 +123,22 @@ def download(
     Функция возвращает pdf файл
     """
     if first_hash_request is None:
-        first_hash_request = requests.get(get_hash_url(id, 0), cookies=session)
+        first_hash_request = requests.get(get_hash_url(id, 0), cookies=session, headers=HEADERS)
 
     if first_hash_request.text != "0":
         print(f"Нет книги с ID {id}.", file=sys.stderr)
         exit(2)
 
     sys.stdout.write(f"Загружаем 1 страницу...")
-    first_page = requests.get(get_page_url(id, 0), cookies=session)
+    first_page = requests.get(get_page_url(id, 0), cookies=session, headers=HEADERS)
     pages = [first_page.content]
     sys.stdout.flush()
 
     i = 1
     while True:
-        requests.get(get_hash_url(id, i), cookies=session)
+        requests.get(get_hash_url(id, i), cookies=session, headers=HEADERS)
         sys.stdout.write(f"\rЗагружаем {i + 1} страницу...")
-        page = requests.get(get_page_url(id, i), cookies=session)
+        page = requests.get(get_page_url(id, i), cookies=session, headers=HEADERS)
         sys.stdout.flush()
         if page_invalid(page):
             break
