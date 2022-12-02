@@ -8,6 +8,7 @@ import argparse
 import imghdr
 import sys
 from dataclasses import dataclass
+from enum import IntEnum
 from pathlib import Path
 
 import img2pdf
@@ -25,6 +26,14 @@ HEADERS = {
     "Upgrade-Insecure-Requests": "1",
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36",
 }
+
+
+class ExitCodes(IntEnum):
+    SUCCESS = 0
+    INVALID_ARGUMENTS = 2
+    LOGIN_FAILED = 3
+    BOOK_NOT_FOUND = 4
+    NO_BOOKS_FOUND = 5
 
 
 def soup(text: str):
@@ -90,7 +99,7 @@ def auth(
     response = requests.post(LOGIN_URL, payload, cookies=session, headers=HEADERS)
     if login_failed(response):
         print(f"Не удалось войти.", file=sys.stderr)
-        exit(3)
+        exit(ExitCodes.LOGIN_FAILED)
     return session, response
 
 
@@ -114,6 +123,9 @@ def search(query: str, session: RequestsCookieJar) -> list[Book]:
     del session["__kt_batch_size"]
     content = soup(search_response.text).find("div", id="content")
     table = content.find("table", class_="kt_collection")
+    if table.find("td").text == "Нет документов или папок соответствующих этому запросу.":
+        print(f"Не найдено книг по запросу '{query}'.", file=sys.stderr)
+        exit(ExitCodes.NO_BOOKS_FOUND)
 
     search_results: list[Book] = []
     for row in table.find("tbody").find_all("tr"):
@@ -176,7 +188,7 @@ def download(
 
     if first_hash_response.text != "0":
         print(f"Нет книги с ID {id}.", file=sys.stderr)
-        exit(2)
+        exit(ExitCodes.BOOK_NOT_FOUND)
 
     sys.stdout.write(f"Загружаем 1 страницу...")
     first_page = requests.get(get_page_url(id, 0), cookies=session, headers=HEADERS)
@@ -239,19 +251,18 @@ def main():
         args.id = get_search_result(search_results).id
     elif args.id is None:
         print("Передайте программе либо ID, либо запрос.", file=sys.stderr)
-        exit(1)
+        exit(ExitCodes.INVALID_ARGUMENTS)
     else:
         if args.id <= 0:
             print("Передан некорректный ID", file=sys.stderr)
-            exit(1)
-
+            exit(ExitCodes.INVALID_ARGUMENTS)
 
     session, metadata_response = auth(args.login, args.password, get_metadata_url(args.id))
 
     metadata = get_metadata(args.id, metadata_response)
     if metadata is None:
         print(f"Нет книги с ID {id}.", file=sys.stderr)
-        exit(2)
+        exit(ExitCodes.BOOK_NOT_FOUND)
     print_metadata(metadata)
 
     path = get_path(path, metadata)
