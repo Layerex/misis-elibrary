@@ -28,5 +28,5 @@ setuptools.setup(
             f"{__prog__} = {module_name}:main",
         ],
     },
-    install_requires=["requests", "img2pdf"],
+    install_requires=["requests", "img2pdf", "beautifulsoup4"],
 )
