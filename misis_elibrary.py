@@ -147,13 +147,37 @@ def print_search_results(search_results: list[Book]):
         )
 
 
-def get_search_result(search_results: list[Book]) -> Book:
-    return search_results[int(input("> ")) - 1]
+def parse_indexes(indexes_string: str, index_max: int) -> list[int]:
+    indexes = []
+    for index in indexes_string.split():
+        parts = tuple(map(lambda x: x - 1, map(int, index.split("-"))))
+        if parts[-1] >= index_max:
+            raise ValueError("Index out of range")
+        if len(parts) == 1:
+            indexes.append(parts[0])
+        elif len(parts) == 2:
+            indexes += list(range(parts[0], parts[1] + 1))
+        else:
+            raise ValueError("Can't parse indexes")
+    return indexes
 
 
-def get_metadata(id: int, metadata_response: requests.Response | None) -> dict[str, str] | None:
+def get_search_results(search_results: list[Book]) -> list[Book]:
+    return list(
+        map(
+            lambda i: search_results[i],
+            parse_indexes(
+                input("Выберите книги для загрузки (например: 1 2 3, 1-3): "), len(search_results)
+            ),
+        )
+    )
+
+
+def get_metadata(
+    id: int, session: RequestsCookieJar, metadata_response: requests.Response | None = None
+) -> dict[str, str] | None:
     if metadata_response is None:
-        metadata_response = requests.get(get_metadata_url(id), headers=HEADERS)
+        metadata_response = requests.get(get_metadata_url(id), cookies=session, headers=HEADERS)
     content = soup(metadata_response.text).find("div", id="content")
 
     metadata: dict[str, str] = {}
@@ -237,15 +261,17 @@ def main():
     args = parser.parse_args()
     args.query = " ".join(args.query).strip()
 
-    path = Path(args.directory)
-    check_path(path)
+    base_path = Path(args.directory)
+    check_path(base_path)
 
+    ids = []
+    metadata_response = None
     if args.query:
         session, _ = auth(args.login, args.password)
 
         search_results = search(args.query, session)
         print_search_results(search_results)
-        args.id = get_search_result(search_results).id
+        ids = map(lambda book: book.id, get_search_results(search_results))
     elif args.id is None:
         print("Передайте программе либо ID, либо запрос.", file=sys.stderr)
         exit(ExitCodes.INVALID_ARGUMENTS)
@@ -254,20 +280,23 @@ def main():
             print("Передан некорректный ID", file=sys.stderr)
             exit(ExitCodes.INVALID_ARGUMENTS)
 
-    session, metadata_response = auth(args.login, args.password, get_metadata_url(args.id))
+        session, metadata_response = auth(args.login, args.password, get_metadata_url(args.id))
+        ids = [args.id]
 
-    metadata = get_metadata(args.id, metadata_response)
-    if metadata is None:
-        print(f"Нет книги с ID {id}.", file=sys.stderr)
-        exit(ExitCodes.BOOK_NOT_FOUND)
-    print_metadata(metadata)
+    for id in ids:
+        metadata = get_metadata(id, session, metadata_response)
+        metadata_response = None
+        if metadata is None:
+            print(f"Нет книги с ID {id}.", file=sys.stderr)
+            exit(ExitCodes.BOOK_NOT_FOUND)
+        print_metadata(metadata)
 
-    path = get_path(path, metadata)
-    print(f"Загружаем книгу в '{path}'...")
+        path = get_path(base_path, metadata)
+        print(f"Загружаем книгу в '{path}'...")
 
-    pdf = download(args.id, session)
-    with open(path, "wb") as f:
-        f.write(pdf)
+        pdf = download(id, session)
+        with open(path, "wb") as f:
+            f.write(pdf)
 
 
 if __name__ == "__main__":
