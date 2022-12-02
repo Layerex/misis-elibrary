@@ -7,6 +7,7 @@ __version__ = "0.0.2"
 import argparse
 import imghdr
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import img2pdf
@@ -15,6 +16,7 @@ from bs4 import BeautifulSoup
 from requests.cookies import RequestsCookieJar
 
 BASE_URL = "http://elibrary.misis.ru/"
+SEARCH_URL = BASE_URL + "search2.php?action=process"
 
 HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
@@ -69,7 +71,7 @@ def check_path(user_path: Path):
 
 
 def auth(
-    login: str, password: str, redirect_url: str
+    login: str, password: str, redirect_url: str = ""
 ) -> tuple[RequestsCookieJar, requests.Response]:
     """
     Функция возвращает сессию и ответ на запрос к redirect_url
@@ -90,6 +92,54 @@ def auth(
         print(f"Не удалось войти.", file=sys.stderr)
         exit(3)
     return session, response
+
+
+@dataclass
+class Book:
+    id: int
+    title: str
+    authors: str
+    year: int
+
+
+def search(query: str, session: RequestsCookieJar) -> list[Book]:
+    query = query.replace('"', "'")
+    payload = {
+        "txtQuery": f'(GeneralText contains "{query}")',
+        "cbQuickQuery": 1,
+        "cbQuickGeneral": 1,
+    }
+    session["__kt_batch_size"] = "1024"  # Не думаю, что кому-нибудь понадобится больше результатов
+    search_response = requests.post(SEARCH_URL, payload, cookies=session, headers=HEADERS)
+    del session["__kt_batch_size"]
+    content = soup(search_response.text).find("div", id="content")
+    table = content.find("table", class_="kt_collection")
+
+    search_results: list[Book] = []
+    for row in table.find("tbody").find_all("tr"):
+        columns = list(row.find_all("td"))
+        link = columns[1].find("a")
+        search_results.append(
+            Book(
+                id=int(link["href"].split("=")[-1]),
+                title=link.text,
+                authors=columns[3].text.strip(),
+                year=int(columns[4].text.strip()),
+            )
+        )
+    return search_results
+
+
+def print_search_results(search_results: list[Book]):
+    for i in range(len(search_results)):
+        book = search_results[len(search_results) - i - 1]
+        print(
+            f"{len(search_results) - i}. {book.authors}{' - ' if book.authors else ''}{book.title} ({book.year})"
+        )
+
+
+def get_search_result(search_results: list[Book]) -> Book:
+    return search_results[int(input("> ")) - 1]
 
 
 def get_metadata(id: int, metadata_response: requests.Response | None) -> dict[str, str] | None:
@@ -158,7 +208,7 @@ def main():
 
     parser.add_argument("-l", "--login", required=True, type=str, metavar="Логин")
     parser.add_argument("-p", "--password", required=True, type=str, metavar="Пароль")
-    parser.add_argument("-i", "--id", required=True, type=int, metavar="ID", help="ID книги")
+    parser.add_argument("-i", "--id", required=False, type=int, metavar="ID", help="ID книги")
     parser.add_argument(
         "-o",
         "--output-path",
@@ -167,11 +217,34 @@ def main():
         metavar="Путь",
         help="Может быть путём как к существующей директории, так и к файлу.",
     )
+    parser.add_argument(
+        "query",
+        metavar="Запрос",
+        type=str,
+        nargs="*",
+        help="Запрос для поиска",
+    )
 
     args = parser.parse_args()
+    args.query = " ".join(args.query).strip()
 
     path = Path(args.output_path)
     check_path(Path(args.output_path))
+
+    if args.query:
+        session, _ = auth(args.login, args.password)
+
+        search_results = search(args.query, session)
+        print_search_results(search_results)
+        args.id = get_search_result(search_results).id
+    elif args.id is None:
+        print("Передайте программе либо ID, либо запрос.", file=sys.stderr)
+        exit(1)
+    else:
+        if args.id <= 0:
+            print("Передан некорректный ID", file=sys.stderr)
+            exit(1)
+
 
     session, metadata_response = auth(args.login, args.password, get_metadata_url(args.id))
 
