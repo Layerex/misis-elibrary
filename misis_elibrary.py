@@ -68,15 +68,12 @@ def get_hash_url(id: int, page: int) -> str:
 
 
 def get_path(user_path: Path, metadata: dict[str, str]) -> Path:
-    if user_path.is_dir():
-        return user_path / f'{metadata["Название"]}.pdf'
-    else:
-        return user_path
+    return user_path / f'{metadata["Название"]}.pdf'
 
 
 def check_path(user_path: Path):
-    if not user_path.is_dir() and not user_path.parent.exists:
-        raise FileNotFoundError(f"No such file or directory: '{user_path}'")
+    if not user_path.is_dir():
+        raise FileNotFoundError(f"No such directory: '{user_path}'")
 
 
 def auth(
@@ -222,12 +219,12 @@ def main():
     parser.add_argument("-p", "--password", required=True, type=str, metavar="Пароль")
     parser.add_argument("-i", "--id", required=False, type=int, metavar="ID", help="ID книги")
     parser.add_argument(
-        "-o",
-        "--output-path",
+        "-d",
+        "--directory",
+        metavar="Директория",
         type=str,
         default=".",
-        metavar="Путь",
-        help="Может быть путём как к существующей директории, так и к файлу.",
+        help="Директория для загрузки книг. Если не указана, то используется текущая",
     )
     parser.add_argument(
         "query",
@@ -240,8 +237,8 @@ def main():
     args = parser.parse_args()
     args.query = " ".join(args.query).strip()
 
-    path = Path(args.output_path)
-    check_path(Path(args.output_path))
+    path = Path(args.directory)
+    check_path(path)
 
     if args.query:
         session, _ = auth(args.login, args.password)
