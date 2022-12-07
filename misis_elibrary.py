@@ -68,7 +68,14 @@ def get_hash_url(id: int, page: int) -> str:
 
 
 def get_path(user_path: Path, metadata: dict[str, str]) -> Path:
-    return user_path / f'{metadata["Название"]}.pdf'
+    return user_path / get_filename(metadata)
+
+
+def get_filename(metadata: dict[str, str]):
+    if metadata["Название"].endswith(".pdf"):
+        return metadata["Название"]
+    else:
+        return f'{metadata["Название"]}.pdf'
 
 
 def check_path(user_path: Path):
