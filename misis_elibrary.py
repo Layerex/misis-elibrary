@@ -163,14 +163,16 @@ def parse_indexes(indexes_string: str, index_max: int) -> list[int]:
 
 
 def get_search_results(search_results: list[Book]) -> list[Book]:
-    return list(
-        map(
-            lambda i: search_results[i],
-            parse_indexes(
+    while True:
+        try:
+            indexes = parse_indexes(
                 input("Выберите книги для загрузки (например: 1 2 3, 1-3): "), len(search_results)
-            ),
-        )
-    )
+            )
+            break
+        except ValueError:
+            pass
+
+    return list(map(lambda i: search_results[i], indexes))
 
 
 def get_metadata(
