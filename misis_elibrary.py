@@ -262,7 +262,11 @@ def main():
     args.query = " ".join(args.query).strip()
 
     base_path = Path(args.directory)
-    check_path(base_path)
+    try:
+        check_path(base_path)
+    except FileNotFoundError:
+        print(f"Нет такой директории: '{base_path}'")
+        exit(ExitCodes.INVALID_ARGUMENTS)
 
     match (args.login is not None) + (args.password is not None):
         case 0:
