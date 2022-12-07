@@ -105,7 +105,7 @@ class Book:
     id: int
     title: str
     authors: str
-    year: int
+    year: str
 
 
 def search(query: str, session: RequestsCookieJar) -> list[Book]:
@@ -133,7 +133,7 @@ def search(query: str, session: RequestsCookieJar) -> list[Book]:
                 id=int(link["href"].split("=")[-1]),
                 title=link.text,
                 authors=columns[3].text.strip(),
-                year=int(columns[4].text.strip()),
+                year=columns[4].text.strip(),
             )
         )
     return search_results
@@ -143,7 +143,7 @@ def print_search_results(search_results: list[Book]):
     for i in range(len(search_results)):
         book = search_results[len(search_results) - i - 1]
         print(
-            f"{len(search_results) - i}. {book.authors}{' - ' if book.authors else ''}{book.title} ({book.year})"
+            f"{len(search_results) - i}. {book.authors}{' - ' if book.authors else ''}{book.title}{f' ({book.year})' if book.year else ''}"
         )
 
 
