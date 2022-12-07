@@ -277,7 +277,7 @@ def main():
         exit(ExitCodes.INVALID_ARGUMENTS)
     else:
         if args.id <= 0:
-            print("Передан некорректный ID", file=sys.stderr)
+            print("Передан некорректный ID.", file=sys.stderr)
             exit(ExitCodes.INVALID_ARGUMENTS)
 
         session, metadata_response = auth(args.login, args.password, get_metadata_url(args.id))
