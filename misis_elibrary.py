@@ -239,8 +239,8 @@ def main():
         description=__desc__,
     )
 
-    parser.add_argument("-l", "--login", required=True, type=str, metavar="Логин")
-    parser.add_argument("-p", "--password", required=True, type=str, metavar="Пароль")
+    parser.add_argument("-l", "--login", type=str, metavar="Логин")
+    parser.add_argument("-p", "--password", type=str, metavar="Пароль")
     parser.add_argument("-i", "--id", required=False, type=int, metavar="ID", help="ID книги")
     parser.add_argument(
         "-d",
@@ -263,6 +263,21 @@ def main():
 
     base_path = Path(args.directory)
     check_path(base_path)
+
+    match (args.login is not None) + (args.password is not None):
+        case 0:
+            print(
+                "Данные для входа не переданы - используем гостевую учётную запись.",
+                file=sys.stderr,
+            )
+            args.login = "гость"
+            args.password = "гость"
+        case 1:
+            print(
+                "Либо передайте и логин, и пароль, либо не передавайте ни логин, ни пароль.",
+                file=sys.stderr,
+            )
+            exit(ExitCodes.INVALID_ARGUMENTS)
 
     ids = []
     metadata_response = None
