@@ -16,7 +16,6 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url=f"https://github.com/Layerex/{__prog__}",
     classifiers=[
-        "Development Status :: 6 - Mature",
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
